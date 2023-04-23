@@ -2,11 +2,8 @@ import https from "https";
 import fetch from "node-fetch";
 
 const CHANNEL_ID = "957364171215896646";
-const USER_ID = "572872636439330838";
-const DISCORD_TOKEN =
-  "NTcyODcyNjM2NDM5MzMwODM4.Gp4kZI.kzMTW2hcfJpnE2fujjb2BVLK2gtPfRC8OcWZW4";
-const API_URL = "wss://gateway.discord.gg/?v=9&encoding=json";
-const intents = 513;
+const USER_ID = "";
+const DISCORD_TOKEN = "";
 
 function sendDiscordMessage(message) {
   const data = JSON.stringify({ content: message });
