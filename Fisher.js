@@ -14,32 +14,38 @@ export class Fisher {
 
   _init() {
     this.discordApi = new DiscordFishAPI(this._userId, this._DISCORD_TOKEN);
+    this._prevMessageId = null;
   }
 
-  _isCanFishing() {
+  async _isCanFishing() {
     let isFishing = false;
 
-    this.discordApi
-      .getUserMessagesByChannelId(this._CHANNEL_ID)
-      .then((messages) => {
-        const lastMessage = messages.pop();
+    const messages = await this.discordApi.getUserMessagesByChannelId(
+      this._CHANNEL_ID
+    );
+    const lastMessage = messages.pop();
+    if (lastMessage) {
+      if (this._prevMessageId === lastMessage.id) return false;
 
-        isFishing = lastMessage && lastMessage.content.includes("again!");
-      });
+      isFishing = lastMessage.content.includes("again!");
+      this._prevMessageId = lastMessage.id;
+    }
 
     return isFishing;
   }
 
-  catchFish() {
-    if (this._isCanFishing()) {
-      Logs.log("You can fish again!");
+  async catchFish() {
+    const isFishing = await this._isCanFishing();
+
+    if (isFishing) {
+      Logs.info("You can fish again!");
       this.discordApi.sendCommand(payloads.fish);
-    } else {
-      Log.warn(lastMessage ?? "I don`t see \\_(**)_/");
+      Logs.info("Fished");
     }
   }
 
-  getInventory() {
-    this.discordApi.sendCommand(payloads.inventory);
+  async getInventory() {
+    const inventory = await this.discordApi.sendCommand(payloads.inventory);
+    return inventory;
   }
 }
