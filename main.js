@@ -11,7 +11,7 @@ let humanMargin = 0;
 
 async function main() {
   await fisher.catchFish();
-  humanMargin = Math.floor((Math.random() + 109) * 9);
+  humanMargin = Math.floor(Math.random() * (10000 - 1000)) + 1000;
   setTimeout(main, 60000 + humanMargin);
 }
 
