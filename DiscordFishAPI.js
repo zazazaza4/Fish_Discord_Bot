@@ -4,47 +4,91 @@ import { Logs } from "./Logs.js";
 
 const BASE_URL = "https://discord.com/api/v9/channels";
 
+const agent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+});
+
 export class DiscordFishAPI {
   constructor(userId, token) {
     this._userId = userId;
+    this._channelId = process.env.CHANNEL_ID;
     this._token = token;
   }
 
-  async getUserMessagesByChannelId(CHANNEL_ID) {
-    const url = `${BASE_URL}/${CHANNEL_ID}/messages`;
+  async getUserMessagesByChannelId() {
+    const url = `${BASE_URL}/${this._channelId}/messages`;
     try {
       const res = await fetch(url, {
         headers: {
-          Authorization: `${this.token}`,
+          Authorization: `${this._token}`,
         },
+        agent,
       });
+
       const messages = await res.json();
-
-      const messageById = messages.filter((element) => {
-        return element.content.includes(`<@${this._userId}>`);
+      const messagesById = messages.filter((message) => {
+        return message.content.includes(`<@${this._userId}>`);
       });
 
-      return messageById;
+      return messagesById;
     } catch (error) {
       Logs.error(error);
+      return [];
     }
   }
 
-  sendCommand(payloadJson) {
+  async getInfoByMessageId() {
+    const url = `${BASE_URL}/${this._channelId}/messages`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `${this._token}`,
+        },
+        agent,
+      });
+
+      const messages = await res.json();
+      const infoMessage = messages.filter((message) => {
+        return (
+          message &&
+          message.embeds[0]?.description.includes(`<@${this._userId}>`)
+        );
+      });
+
+      if (infoMessage && infoMessage.length > 0) {
+        const info = infoMessage.pop().embeds[0]?.description;
+
+        const regexPrice = /\*\*\d+\.\d+ Ӿ\*\*/;
+        const regexName = /\*\d+ \b\w+\b/;
+
+        return {
+          name: info.match(regexName)[0],
+          price: info.match(regexPrice)[0],
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  sendCommand(payload) {
     const options = {
       hostname: "discord.com",
       path: "/api/v9/interactions",
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(JSON.stringify(payloadJson)),
+        "Content-Length": Buffer.byteLength(JSON.stringify(payload)),
         Authorization: this._token,
       },
     };
 
     const req = https.request(options, (res) => {
-      Log.info(`statusCode: ${res.statusCode}`);
-
       res.on("data", (d) => {
         process.stdout.write(d);
       });
@@ -54,27 +98,35 @@ export class DiscordFishAPI {
       Logs.error(error);
     });
 
-    req.write(JSON.stringify(payloadJson));
+    req.write(JSON.stringify(payload));
     req.end();
   }
 
-  sendMessage(content) {
-    const url = `${BASE_URL}/${CHANNEL_ID}/messages`;
+  async sendMessage(content) {
+    const url = `${BASE_URL}/${this._channelId}/messages`;
     const data = JSON.stringify({ content });
 
-    const req = https.request(url, options, (res) => {
-      if (res.statusCode === 200) {
-        Logs.log("Sent!");
+    const options = {
+      hostname: "discord.com",
+      path: url,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(data),
+        Authorization: this._token,
+      },
+      agent,
+    };
+
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 200) {
+        Logs.info("Sent!");
       } else {
-        Logs.error(`Received HTTP ${res.statusCode}: ${res.statusMessage}`);
+        Logs.error(`Received HTTP ${res.status}: ${res.statusText}`);
       }
-    });
-
-    req.on("error", (error) => {
+    } catch (error) {
       Logs.error("Failed to send message:", error);
-    });
-
-    req.write(data);
-    req.end();
+    }
   }
 }
